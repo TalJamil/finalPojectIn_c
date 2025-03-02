@@ -233,3 +233,70 @@ void echopend(char **args) {
     fclose(file);
     printf("%sString appended successfully to '%s'%s\n", YELLOW, args[2], RESET);
 }
+
+
+void echowrite(char **args) {
+    if (args[1] == NULL || args[2] == NULL) {
+        fprintf(stderr, "%sechowrite: missing string or file%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    FILE *file = fopen(args[2], "w");
+    if (!file) {
+        perror("echowrite: file open failed");
+        return;
+    }
+    
+    fprintf(file, "%s\n", args[1]);
+    fclose(file);
+    printf("%sString written successfully to '%s'%s\n", YELLOW, args[2], RESET);
+}
+
+void readfile(char **args) {
+    if (args[1] == NULL) {
+        fprintf(stderr, "%sread: missing file path%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    FILE *file = fopen(args[1], "r");
+    if (!file) {
+        perror("read: file open failed");
+        return;
+    }
+    
+    char buffer[BUFFER_SIZE];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        printf("%s", buffer);
+    }
+    fclose(file);
+}
+
+void wordCount(char **args) {
+    if (args[1] == NULL || args[2] == NULL) {
+        fprintf(stderr, "%swordCount: missing option or file path%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    FILE *file = fopen(args[2], "r");
+    if (!file) {
+        perror("wordCount: file open failed");
+        return;
+    }
+    
+    int count = 0;
+    char buffer[BUFFER_SIZE];
+    if (strcmp(args[1], "-l") == 0) {
+        while (fgets(buffer, sizeof(buffer), file)) {
+            count++;
+        }
+        printf("%sLines: %d%s\n", YELLOW, count, RESET);
+    } else if (strcmp(args[1], "-w") == 0) {
+        while (fscanf(file, "%s", buffer) == 1) {
+            count++;
+        }
+        printf("%sWords: %d%s\n", YELLOW, count, RESET);
+    } else {
+        fprintf(stderr, "%swordCount: invalid option. Use -l for lines or -w for words.%s\n", YELLOW, RESET);
+    }
+    fclose(file);
+}
