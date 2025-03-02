@@ -19,8 +19,9 @@
 #define BUFFER_SIZE 1024
 #define ARGUMENTS_SIZE 10
 
+// פונקציה שמדפיסה הודעת ברוכים הבאים
 void print_welcome() {
-    printf("%s", BLUE);
+    printf("%s", BLUE); // שינוי צבע הטקסט לכחול
     printf("=====================================\n");
     printf("             WELCOME!               \n");
     printf("=====================================\n");
@@ -38,13 +39,14 @@ void print_welcome() {
     printf("=====================================\n");
     printf("          welcome to my shell!             \n");
     printf("=====================================\n");
-    printf("%s", RESET);
+    printf("%s", RESET); // איפוס צבע הטקסט
 }
 
+// פונקציה שמדפיסה את המיקום הנוכחי של המשתמש
 void getlocation() {
-    char cwd[PATH_MAX];
-    char hostname[HOST_NAME_MAX];
-    struct passwd *pw;
+    char cwd[PATH_MAX]; // משתנה לאחסון הנתיב הנוכחי
+    char hostname[HOST_NAME_MAX]; // משתנה לאחסון שם המחשב
+    struct passwd *pw; // מבנה לאחסון מידע על המשתמש
     
     // קבלת שם המשתמש
     pw = getpwuid(getuid());
@@ -66,36 +68,39 @@ void getlocation() {
     printf("%s%s%s@%s%s%s:%s%s%s\n", GREEN, username, RESET, BLUE, hostname, RESET, LIGHT_PURPLE, cwd, RESET);
 }
 
+// פונקציה שמפצלת מחרוזת למערך של מחרוזות לפי רווחים
 char **splitArgument(char *str) {
-    int count = 0;
-    char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE);
+    int count = 0; // מונה את מספר המילים
+    char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE); // מקצה זיכרון למערך המחרוזות
     if (!arguments) {
         perror("malloc failed");
         return NULL;
     }
     
-    char *token = strtok(str, " ");
+    char *token = strtok(str, " "); // מפצל את המחרוזת לפי רווחים
     while (token != NULL) {
-        arguments[count] = strdup(token);
+        arguments[count] = strdup(token); // מעתיק את המילה למערך
         if (!arguments[count]) {
             perror("strdup failed");
             freeArguments(arguments);
             return NULL;
         }
         count++;
-        token = strtok(NULL, " ");
+        token = strtok(NULL, " "); // ממשיך לפצל את המחרוזת
     }
-    arguments[count] = NULL;
+    arguments[count] = NULL; // מסמן את סוף המערך
     return arguments;
 }
 
+// פונקציה שמשחררת את הזיכרון שהוקצה למערך המחרוזות
 void freeArguments(char **args) {
     for (int i = 0; args[i] != NULL; i++) {
-        free(args[i]);
+        free(args[i]); // משחרר כל מחרוזת במערך
     }
-    free(args);
+    free(args); // משחרר את המערך עצמו
 }
 
+// פונקציה שמבצעת יציאה מהתוכנית אם המשתמש הקליד exit
 void logout(char *str) {
     // הסרת רווחים מתחילת המחרוזת
     while (*str == ' ') str++;
@@ -114,48 +119,50 @@ void logout(char *str) {
     }
 }
 
+// פונקציה שמשנה את הספרייה הנוכחית
 void cd(char **args) {
     if (args[1] == NULL) {
         fprintf(stderr, "%scd: missing argument%s\n", YELLOW, RESET);
         return;
     }
     
-    char path[PATH_MAX] = "";
+    char path[PATH_MAX] = ""; // משתנה לאחסון הנתיב
     for (int i = 1; args[i] != NULL; i++) {
-        strcat(path, args[i]);
+        strcat(path, args[i]); // מחבר את כל המילים לנתיב אחד
         if (args[i + 1] != NULL) {
             strcat(path, " ");
         }
     }
     
-    if (chdir(path) != 0) {
+    if (chdir(path) != 0) { // משנה את הספרייה הנוכחית
         perror("cd failed");
     }
 }
 
+// פונקציה שמעתיקה קובץ ממקום אחד למקום אחר
 void cp(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
         fprintf(stderr, "%scp: missing source or destination%s\n", YELLOW, RESET);
         return;
     }
     
-    int source = open(args[1], O_RDONLY);
+    int source = open(args[1], O_RDONLY); // פותח את קובץ המקור לקריאה
     if (source == -1) {
         perror("cp: source file error");
         return;
     }
     
-    int dest = open(args[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int dest = open(args[2], O_WRONLY | O_CREAT | O_TRUNC, 0644); // פותח את קובץ היעד לכתיבה
     if (dest == -1) {
         perror("cp: destination file error");
         close(source);
         return;
     }
     
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE]; // משתנה לאחסון הנתונים המועתקים
     ssize_t bytes;
-    while ((bytes = read(source, buffer, sizeof(buffer))) > 0) {
-        if (write(dest, buffer, bytes) != bytes) {
+    while ((bytes = read(source, buffer, sizeof(buffer))) > 0) { // קורא את הנתונים מקובץ המקור
+        if (write(dest, buffer, bytes) != bytes) { // כותב את הנתונים לקובץ היעד
             perror("cp: write error");
             close(source);
             close(dest);
@@ -167,12 +174,22 @@ void cp(char **args) {
         perror("cp: read error");
     }
     
-    close(source);
-    close(dest);
+    close(source); // סוגר את קובץ המקור
+    close(dest); // סוגר את קובץ היעד
 }
 
+// פונקציה שמוחקת קובץ
 void delete(char *str) {
+    // הסרת רווחים מתחילת המחרוזת
     while (*str == ' ') str++;
+    
+    // בדיקה אם המחרוזת ריקה
+    if (*str == '\0') {
+        fprintf(stderr, "%sdelete: missing file path%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    // ניסיון למחוק את הקובץ
     if (unlink(str) == 0) {
         printf("%sFile '%s' deleted successfully.%s\n", YELLOW, str, RESET);
     } else {
@@ -180,14 +197,15 @@ void delete(char *str) {
     }
 }
 
+// פונקציה שמבצעת צינור בין שתי פקודות
 void mypipe(char **argv1, char **argv2) {
-    int pipefd[2];
+    int pipefd[2]; // משתנה לאחסון תיאורי הקבצים של הצינור
     if (pipe(pipefd) == -1) {
         perror("pipe failed");
         exit(EXIT_FAILURE);
     }
 
-    pid_t pid1 = fork();
+    pid_t pid1 = fork(); // יוצר תהליך בן ראשון
     if (pid1 == -1) {
         perror("fork failed");
         exit(EXIT_FAILURE);
@@ -195,15 +213,15 @@ void mypipe(char **argv1, char **argv2) {
 
     if (pid1 == 0) {
         // תהליך ראשון - הכותב לצינור
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-        execvp(argv1[0], argv1);
+        close(pipefd[0]); // סוגר את הקצה הקורא של הצינור
+        dup2(pipefd[1], STDOUT_FILENO); // מחבר את הקצה הכותב של הצינור ל-stdout
+        close(pipefd[1]); // סוגר את הקצה הכותב של הצינור
+        execvp(argv1[0], argv1); // מפעיל את הפקודה הראשונה
         perror("execvp failed");
         exit(EXIT_FAILURE);
     }
 
-    pid_t pid2 = fork();
+    pid_t pid2 = fork(); // יוצר תהליך בן שני
     if (pid2 == -1) {
         perror("fork failed");
         exit(EXIT_FAILURE);
@@ -211,106 +229,111 @@ void mypipe(char **argv1, char **argv2) {
 
     if (pid2 == 0) {
         // תהליך שני - הקורא מהצינור
-        close(pipefd[1]);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-        execvp(argv2[0], argv2);
+        close(pipefd[1]); // סוגר את הקצה הכותב של הצינור
+        dup2(pipefd[0], STDIN_FILENO); // מחבר את הקצה הקורא של הצינור ל-stdin
+        close(pipefd[0]); // סוגר את הקצה הקורא של הצינור
+        execvp(argv2[0], argv2); // מפעיל את הפקודה השנייה
         perror("execvp failed");
         exit(EXIT_FAILURE);
     }
 
-    close(pipefd[0]);
-    close(pipefd[1]);
-    waitpid(pid1, NULL, 0);
-    waitpid(pid2, NULL, 0);
+    close(pipefd[0]); // סוגר את הקצה הקורא של הצינור בתהליך האב
+    close(pipefd[1]); // סוגר את הקצה הכותב של הצינור בתהליך האב
+    waitpid(pid1, NULL, 0); // מחכה לסיום התהליך הראשון
+    waitpid(pid2, NULL, 0); // מחכה לסיום התהליך השני
 }
 
+// פונקציה שמעבירה או משנה שם של קובץ
 void move(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
         fprintf(stderr, "%smove: missing source or destination%s\n", YELLOW, RESET);
         return;
     }
     
-    if (rename(args[1], args[2]) != 0) {
+    if (rename(args[1], args[2]) != 0) { // משנה את שם הקובץ או מעביר אותו
         perror("move: file move failed");
     } else {
         printf("%sFile moved successfully from '%s' to '%s'%s\n", YELLOW, args[1], args[2], RESET);
     }
 }
 
+// פונקציה שמוסיפה מחרוזת לקובץ
 void echopend(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
         fprintf(stderr, "%sechopend: missing string or file%s\n", YELLOW, RESET);
         return;
     }
     
-    FILE *file = fopen(args[2], "a");
+    FILE *file = fopen(args[2], "a"); // פותח את הקובץ להוספה
     if (!file) {
         perror("echopend: file open failed");
         return;
     }
     
-    fprintf(file, "%s\n", args[1]);
-    fclose(file);
+    fprintf(file, "%s\n", args[1]); // כותב את המחרוזת לקובץ
+    fclose(file); // סוגר את הקובץ
     printf("%sString appended successfully to '%s'%s\n", YELLOW, args[2], RESET);
 }
 
+// פונקציה שכותבת מחרוזת לקובץ (מחליפה את התוכן הקיים)
 void echowrite(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
         fprintf(stderr, "%sechowrite: missing string or file%s\n", YELLOW, RESET);
         return;
     }
     
-    FILE *file = fopen(args[2], "w");
+    FILE *file = fopen(args[2], "w"); // פותח את הקובץ לכתיבה
     if (!file) {
         perror("echowrite: file open failed");
         return;
     }
     
-    fprintf(file, "%s\n", args[1]);
-    fclose(file);
+    fprintf(file, "%s\n", args[1]); // כותב את המחרוזת לקובץ
+    fclose(file); // סוגר את הקובץ
     printf("%sString written successfully to '%s'%s\n", YELLOW, args[2], RESET);
 }
 
+// פונקציה שקוראת ומציגה את תוכן הקובץ
 void readfile(char **args) {
     if (args[1] == NULL) {
         fprintf(stderr, "%sread: missing file path%s\n", YELLOW, RESET);
         return;
     }
     
-    FILE *file = fopen(args[1], "r");
+    FILE *file = fopen(args[1], "r"); // פותח את הקובץ לקריאה
     if (!file) {
         perror("read: file open failed");
         return;
     }
     
-    char buffer[BUFFER_SIZE];
-    while (fgets(buffer, sizeof(buffer), file)) {
-        printf("%s", buffer);
+    char buffer[BUFFER_SIZE]; // משתנה לאחסון הנתונים הנקראים
+    while (fgets(buffer, sizeof(buffer), file)) { // קורא את הנתונים מהקובץ
+        printf("%s", buffer); // מציג את הנתונים
     }
-    fclose(file);
+    fclose(file); // סוגר את הקובץ
 }
 
+// פונקציה שסופרת ומציגה את מספר השורות או המילים בקובץ
 void wordCount(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
         fprintf(stderr, "%swordCount: missing option or file path%s\n", YELLOW, RESET);
         return;
     }
     
-    FILE *file = fopen(args[2], "r");
+    FILE *file = fopen(args[2], "r"); // פותח את הקובץ לקריאה
     if (!file) {
         perror("wordCount: file open failed");
         return;
     }
     
-    int count = 0;
-    char buffer[BUFFER_SIZE];
-    if (strcmp(args[1], "-l") == 0) {
+    int count = 0; // מונה את מספר השורות או המילים
+    char buffer[BUFFER_SIZE]; // משתנה לאחסון הנתונים הנקראים
+    if (strcmp(args[1], "-l") == 0) { // אם האופציה היא -l (ספירת שורות)
         while (fgets(buffer, sizeof(buffer), file)) {
             count++;
         }
         printf("%sLines: %d%s\n", YELLOW, count, RESET);
-    } else if (strcmp(args[1], "-w") == 0) {
+    } else if (strcmp(args[1], "-w") == 0) { // אם האופציה היא -w (ספירת מילים)
         while (fscanf(file, "%s", buffer) == 1) {
             count++;
         }
@@ -318,5 +341,5 @@ void wordCount(char **args) {
     } else {
         fprintf(stderr, "%swordCount: invalid option. Use -l for lines or -w for words.%s\n", YELLOW, RESET);
     }
-    fclose(file);
+    fclose(file); // סוגר את הקובץ
 }
