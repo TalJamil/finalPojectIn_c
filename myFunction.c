@@ -1,3 +1,24 @@
+#include "myFunction.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <limits.h>
+#include <sys/utsname.h>
+#include <pwd.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#define PURPLE "\033[1;35m" // צבע סגול
+#define LIGHT_PURPLE "\033[1;36m" // צבע סגול בהיר
+#define GREEN "\033[1;32m"  // צבע ירוק
+#define BLUE "\033[1;34m"   // צבע כחול
+#define YELLOW "\033[1;33m" // צבע צהוב
+#define RESET "\033[0m"     // איפוס צבע
+#define BUFFER_SIZE 1024
+#define ARGUMENTS_SIZE 10
+
 void print_welcome() {
     printf("%s", BLUE);
     printf("=====================================\n");
@@ -18,101 +39,101 @@ void print_welcome() {
     printf("          welcome to my shell!             \n");
     printf("=====================================\n");
     printf("%s", RESET);
-
 }
-    void getlocation() {
-        char cwd[PATH_MAX];
-        char hostname[HOST_NAME_MAX];
-        struct passwd *pw;
-        
-        // קבלת שם המשתמש
-        pw = getpwuid(getuid());
-        char *username = pw ? pw->pw_name : "Unknown";
-        
-        // קבלת שם המחשב
-        if (gethostname(hostname, sizeof(hostname)) != 0) {
-            perror("gethostname failed");
-            return;
-        }
-        
-        // קבלת הנתיב הנוכחי
-        if (getcwd(cwd, sizeof(cwd)) == NULL) {
-            perror("getcwd failed");
-            return;
-        }
-        
-        // הדפסת המידע
-        printf("%s%s%s@%s%s%s:%s%s%s\n", GREEN, username, RESET, BLUE, hostname, RESET, LIGHT_PURPLE, cwd, RESET);
+
+void getlocation() {
+    char cwd[PATH_MAX];
+    char hostname[HOST_NAME_MAX];
+    struct passwd *pw;
+    
+    // קבלת שם המשתמש
+    pw = getpwuid(getuid());
+    char *username = pw ? pw->pw_name : "Unknown";
+    
+    // קבלת שם המחשב
+    if (gethostname(hostname, sizeof(hostname)) != 0) {
+        perror("gethostname failed");
+        return;
     }
     
-    char **splitArgument(char *str) {
-        int count = 0;
-        char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE);
-        if (!arguments) {
-            perror("malloc failed");
+    // קבלת הנתיב הנוכחי
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd failed");
+        return;
+    }
+    
+    // הדפסת המידע
+    printf("%s%s%s@%s%s%s:%s%s%s\n", GREEN, username, RESET, BLUE, hostname, RESET, LIGHT_PURPLE, cwd, RESET);
+}
+
+char **splitArgument(char *str) {
+    int count = 0;
+    char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE);
+    if (!arguments) {
+        perror("malloc failed");
+        return NULL;
+    }
+    
+    char *token = strtok(str, " ");
+    while (token != NULL) {
+        arguments[count] = strdup(token);
+        if (!arguments[count]) {
+            perror("strdup failed");
+            freeArguments(arguments);
             return NULL;
         }
-        
-        char *token = strtok(str, " ");
-        while (token != NULL) {
-            arguments[count] = strdup(token);
-            if (!arguments[count]) {
-                perror("strdup failed");
-                freeArguments(arguments);
-                return NULL;
-            }
-            count++;
-            token = strtok(NULL, " ");
-        }
-        arguments[count] = NULL;
-        return arguments;
+        count++;
+        token = strtok(NULL, " ");
     }
+    arguments[count] = NULL;
+    return arguments;
+}
 
-    void freeArguments(char **args) {
-        for (int i = 0; args[i] != NULL; i++) {
-            free(args[i]);
-        }
-        free(args);
+void freeArguments(char **args) {
+    for (int i = 0; args[i] != NULL; i++) {
+        free(args[i]);
     }
+    free(args);
+}
+
+void logout(char *str) {
+    // הסרת רווחים מתחילת המחרוזת
+    while (*str == ' ') str++;
     
-    void logout(char *str) {
-        // הסרת רווחים מתחילת המחרוזת
+    // בדיקה אם המחרוזת מתחילה ב-exit
+    if (strncmp(str, "exit", 4) == 0) {
+        str += 4;
+        // דילוג על רווחים אחרי "exit"
         while (*str == ' ') str++;
         
-        // בדיקה אם המחרוזת מתחילה ב-exit
-        if (strncmp(str, "exit", 4) == 0) {
-            str += 4;
-            // דילוג על רווחים אחרי "exit"
-            while (*str == ' ') str++;
-            
-            // אם הגענו לסוף המחרוזת, מבצעים יציאה
-            if (*str == '\0') {
-                printf("%sLogging out...%s\n", BLUE, RESET);
-                exit(0);
-            }
+        // אם הגענו לסוף המחרוזת, מבצעים יציאה
+        if (*str == '\0') {
+            printf("%sLogging out...%s\n", BLUE, RESET);
+            exit(0);
         }
     }
+}
 
-    void cd(char **args) {
-        if (args[1] == NULL) {
-            fprintf(stderr, "%scd: missing argument%s\n", YELLOW, RESET);
-            return;
-        }
-        
-        char path[PATH_MAX] = "";
-        for (int i = 1; args[i] != NULL; i++) {
-            strcat(path, args[i]);
-            if (args[i + 1] != NULL) {
-                strcat(path, " ");
-            }
-        }
-        
-        if (chdir(path) != 0) {
-            perror("cd failed");
+void cd(char **args) {
+    if (args[1] == NULL) {
+        fprintf(stderr, "%scd: missing argument%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    char path[PATH_MAX] = "";
+    for (int i = 1; args[i] != NULL; i++) {
+        strcat(path, args[i]);
+        if (args[i + 1] != NULL) {
+            strcat(path, " ");
         }
     }
     
-    void cp(char **args) {
+    if (chdir(path) != 0) {
+        perror("cd failed");
+    }
+}
+
+void cp(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
         fprintf(stderr, "%scp: missing source or destination%s\n", YELLOW, RESET);
         return;
@@ -233,7 +254,6 @@ void echopend(char **args) {
     fclose(file);
     printf("%sString appended successfully to '%s'%s\n", YELLOW, args[2], RESET);
 }
-
 
 void echowrite(char **args) {
     if (args[1] == NULL || args[2] == NULL) {
