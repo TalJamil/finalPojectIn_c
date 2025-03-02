@@ -45,3 +45,25 @@ void print_welcome() {
         printf("%s%s%s@%s%s%s:%s%s%s\n", GREEN, username, RESET, BLUE, hostname, RESET, LIGHT_PURPLE, cwd, RESET);
     }
     
+    char **splitArgument(char *str) {
+        int count = 0;
+        char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE);
+        if (!arguments) {
+            perror("malloc failed");
+            return NULL;
+        }
+        
+        char *token = strtok(str, " ");
+        while (token != NULL) {
+            arguments[count] = strdup(token);
+            if (!arguments[count]) {
+                perror("strdup failed");
+                freeArguments(arguments);
+                return NULL;
+            }
+            count++;
+            token = strtok(NULL, " ");
+        }
+        arguments[count] = NULL;
+        return arguments;
+    }
