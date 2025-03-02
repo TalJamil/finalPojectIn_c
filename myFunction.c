@@ -92,3 +92,60 @@ void print_welcome() {
             }
         }
     }
+
+    void cd(char **args) {
+        if (args[1] == NULL) {
+            fprintf(stderr, "%scd: missing argument%s\n", YELLOW, RESET);
+            return;
+        }
+        
+        char path[PATH_MAX] = "";
+        for (int i = 1; args[i] != NULL; i++) {
+            strcat(path, args[i]);
+            if (args[i + 1] != NULL) {
+                strcat(path, " ");
+            }
+        }
+        
+        if (chdir(path) != 0) {
+            perror("cd failed");
+        }
+    }
+    
+    void cp(char **args) {
+    if (args[1] == NULL || args[2] == NULL) {
+        fprintf(stderr, "%scp: missing source or destination%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    int source = open(args[1], O_RDONLY);
+    if (source == -1) {
+        perror("cp: source file error");
+        return;
+    }
+    
+    int dest = open(args[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (dest == -1) {
+        perror("cp: destination file error");
+        close(source);
+        return;
+    }
+    
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes;
+    while ((bytes = read(source, buffer, sizeof(buffer))) > 0) {
+        if (write(dest, buffer, bytes) != bytes) {
+            perror("cp: write error");
+            close(source);
+            close(dest);
+            return;
+        }
+    }
+    
+    if (bytes == -1) {
+        perror("cp: read error");
+    }
+    
+    close(source);
+    close(dest);
+}
