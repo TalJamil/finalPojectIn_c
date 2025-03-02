@@ -149,3 +149,57 @@ void print_welcome() {
     close(source);
     close(dest);
 }
+
+void delete(char *str) {
+    while (*str == ' ') str++;
+    if (unlink(str) == 0) {
+        printf("%sFile '%s' deleted successfully.%s\n", YELLOW, str, RESET);
+    } else {
+        perror("delete: file deletion failed");
+    }
+}
+
+void mypipe(char **argv1, char **argv2) {
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        perror("pipe failed");
+        exit(EXIT_FAILURE);
+    }
+
+    pid_t pid1 = fork();
+    if (pid1 == -1) {
+        perror("fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid1 == 0) {
+        // תהליך ראשון - הכותב לצינור
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        execvp(argv1[0], argv1);
+        perror("execvp failed");
+        exit(EXIT_FAILURE);
+    }
+
+    pid_t pid2 = fork();
+    if (pid2 == -1) {
+        perror("fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid2 == 0) {
+        // תהליך שני - הקורא מהצינור
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        execvp(argv2[0], argv2);
+        perror("execvp failed");
+        exit(EXIT_FAILURE);
+    }
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
+}
