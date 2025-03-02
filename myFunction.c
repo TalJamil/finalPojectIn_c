@@ -203,3 +203,33 @@ void mypipe(char **argv1, char **argv2) {
     waitpid(pid1, NULL, 0);
     waitpid(pid2, NULL, 0);
 }
+
+void move(char **args) {
+    if (args[1] == NULL || args[2] == NULL) {
+        fprintf(stderr, "%smove: missing source or destination%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    if (rename(args[1], args[2]) != 0) {
+        perror("move: file move failed");
+    } else {
+        printf("%sFile moved successfully from '%s' to '%s'%s\n", YELLOW, args[1], args[2], RESET);
+    }
+}
+
+void echopend(char **args) {
+    if (args[1] == NULL || args[2] == NULL) {
+        fprintf(stderr, "%sechopend: missing string or file%s\n", YELLOW, RESET);
+        return;
+    }
+    
+    FILE *file = fopen(args[2], "a");
+    if (!file) {
+        perror("echopend: file open failed");
+        return;
+    }
+    
+    fprintf(file, "%s\n", args[1]);
+    fclose(file);
+    printf("%sString appended successfully to '%s'%s\n", YELLOW, args[2], RESET);
+}
