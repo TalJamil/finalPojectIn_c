@@ -67,3 +67,28 @@ void print_welcome() {
         arguments[count] = NULL;
         return arguments;
     }
+
+    void freeArguments(char **args) {
+        for (int i = 0; args[i] != NULL; i++) {
+            free(args[i]);
+        }
+        free(args);
+    }
+    
+    void logout(char *str) {
+        // הסרת רווחים מתחילת המחרוזת
+        while (*str == ' ') str++;
+        
+        // בדיקה אם המחרוזת מתחילה ב-exit
+        if (strncmp(str, "exit", 4) == 0) {
+            str += 4;
+            // דילוג על רווחים אחרי "exit"
+            while (*str == ' ') str++;
+            
+            // אם הגענו לסוף המחרוזת, מבצעים יציאה
+            if (*str == '\0') {
+                printf("%sLogging out...%s\n", BLUE, RESET);
+                exit(0);
+            }
+        }
+    }
