@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
+#include <linux/limits.h>
 #include <sys/utsname.h>
 #include <pwd.h>
 #include <string.h>
@@ -45,7 +46,7 @@ void print_welcome() {
 // פונקציה שמדפיסה את המיקום הנוכחי של המשתמש
 void getlocation() {
     char cwd[PATH_MAX]; // משתנה לאחסון הנתיב הנוכחי
-    char hostname[HOST_NAME_MAX]; // משתנה לאחסון שם המחשב
+    char hostname[sysconf(_SC_HOST_NAME_MAX)]; // משתנה לאחסון שם המחשב
     struct passwd *pw; // מבנה לאחסון מידע על המשתמש
     
     // קבלת שם המשתמש
@@ -66,9 +67,9 @@ void getlocation() {
     
     // הדפסת המידע
     printf("%s%s%s@%s%s%s:%s%s%s\n", GREEN, username, RESET, BLUE, hostname, RESET, LIGHT_PURPLE, cwd, RESET);
+    
 }
 
-// פונקציה שמפצלת מחרוזת למערך של מחרוזות לפי רווחים
 char **splitArgument(char *str) {
     int count = 0; // מונה את מספר המילים
     char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE); // מקצה זיכרון למערך המחרוזות
@@ -76,17 +77,38 @@ char **splitArgument(char *str) {
         perror("malloc failed");
         return NULL;
     }
-    
-    char *token = strtok(str, " "); // מפצל את המחרוזת לפי רווחים
-    while (token != NULL) {
-        arguments[count] = strdup(token); // מעתיק את המילה למערך
+
+    while (*str) {
+        // דילוג על רווחים
+        while (*str == ' ') str++;
+
+        char *start;
+        if (*str == '\'') {
+            // אם המחרוזת מתחילה בגרשיים
+            str++;
+            start = str;
+            while (*str && *str != '\'') str++;
+            if (*str == '\'') {
+                *str = '\0';
+                str++;
+            }
+        } else {
+            // אם המחרוזת לא מתחילה בגרשיים
+            start = str;
+            while (*str && *str != ' ') str++;
+            if (*str) {
+                *str = '\0';
+                str++;
+            }
+        }
+
+        arguments[count] = strdup(start); // מעתיק את המילה למערך
         if (!arguments[count]) {
             perror("strdup failed");
             freeArguments(arguments);
             return NULL;
         }
         count++;
-        token = strtok(NULL, " "); // ממשיך לפצל את המחרוזת
     }
     arguments[count] = NULL; // מסמן את סוף המערך
     return arguments;
@@ -257,40 +279,12 @@ void move(char **args) {
     }
 }
 
-// פונקציה שמוסיפה מחרוזת לקובץ
-void echopend(char **args) {
-    if (args[1] == NULL || args[2] == NULL) {
-        fprintf(stderr, "%sechopend: missing string or file%s\n", YELLOW, RESET);
-        return;
+// פונקציה שמבצעת את פקודת echo
+void echo(char **args) {
+    for (int i = 1; args[i] != NULL; i++) {
+        printf("%s ", args[i]);
     }
-    
-    FILE *file = fopen(args[2], "a"); // פותח את הקובץ להוספה
-    if (!file) {
-        perror("echopend: file open failed");
-        return;
-    }
-    
-    fprintf(file, "%s\n", args[1]); // כותב את המחרוזת לקובץ
-    fclose(file); // סוגר את הקובץ
-    printf("%sString appended successfully to '%s'%s\n", YELLOW, args[2], RESET);
-}
-
-// פונקציה שכותבת מחרוזת לקובץ (מחליפה את התוכן הקיים)
-void echowrite(char **args) {
-    if (args[1] == NULL || args[2] == NULL) {
-        fprintf(stderr, "%sechowrite: missing string or file%s\n", YELLOW, RESET);
-        return;
-    }
-    
-    FILE *file = fopen(args[2], "w"); // פותח את הקובץ לכתיבה
-    if (!file) {
-        perror("echowrite: file open failed");
-        return;
-    }
-    
-    fprintf(file, "%s\n", args[1]); // כותב את המחרוזת לקובץ
-    fclose(file); // סוגר את הקובץ
-    printf("%sString written successfully to '%s'%s\n", YELLOW, args[2], RESET);
+    printf("\n");
 }
 
 // פונקציה שקוראת ומציגה את תוכן הקובץ
@@ -342,4 +336,53 @@ void wordCount(char **args) {
         fprintf(stderr, "%swordCount: invalid option. Use -l for lines or -w for words.%s\n", YELLOW, RESET);
     }
     fclose(file); // סוגר את הקובץ
+}
+
+// פונקציה שמבצעת פקודה עם הפניה מחדש של פלט
+void execute_command_with_redirection(char **args) {
+    int fd = -1;
+    pid_t pid;
+    int background = 0;
+
+    // Check for background process
+    for (int i = 0; args[i] != NULL; i++) {
+        if (strcmp(args[i], "&") == 0) {
+            background = 1;
+            args[i] = NULL;
+            break;
+        }
+    }
+
+    // Check for output redirection
+    for (int i = 0; args[i] != NULL; i++) {
+        if (strcmp(args[i], ">") == 0) {
+            args[i] = NULL;
+            fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd < 0) {
+                perror("open");
+                return;
+            }
+            break;
+        }
+    }
+
+    pid = fork();
+    if (pid == 0) {
+        // Child process
+        if (fd >= 0) {
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
+        execvp(args[0], args);
+        perror("execvp");
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        // Fork failed
+        perror("fork");
+    } else {
+        // Parent process
+        if (!background) {
+            waitpid(pid, NULL, 0);
+        }
+    }
 }

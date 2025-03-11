@@ -39,34 +39,55 @@ int main() {
     return 0;
 }
 
-// פונקציה שמבצעת את הפקודה המתאימה
 void execute_command(char **args) {
-    if (strcmp(args[0], "cd") == 0) { // אם הפקודה היא cd
+    // בודק אם יש צינור (|) בפקודה
+    int i = 0;
+    while (args[i] != NULL) {
+        if (strcmp(args[i], "|") == 0) {
+            // מצאנו צינור, צריך לפצל את הפקודה לשני חלקים
+            args[i] = NULL; // מחלק את המערך לשני חלקים
+            char **cmd1 = args;     // החלק הראשון של הפקודה
+            char **cmd2 = &args[i + 1]; // החלק השני אחרי הצינור
+
+            mypipe(cmd1, cmd2); // מפעיל את הצינור
+            return;
+        }
+        i++;
+    }
+
+    // Check for output redirection (>)
+    for (int i = 0; args[i] != NULL; i++) {
+        if (strcmp(args[i], ">") == 0) {
+            execute_command_with_redirection(args);
+            return;
+        }
+    }
+
+    // אם אין צינור, מריץ את הפקודה כרגיל
+    if (strcmp(args[0], "cd") == 0) {
         cd(args);
-    } else if (strcmp(args[0], "cp") == 0) { // אם הפקודה היא cp
+    } else if (strcmp(args[0], "cp") == 0) {
         cp(args);
-    } else if (strcmp(args[0], "delete") == 0) { // אם הפקודה היא delete
+    } else if (strcmp(args[0], "delete") == 0) {
         delete(args[1]);
-    } else if (strcmp(args[0], "move") == 0) { // אם הפקודה היא move
+    } else if (strcmp(args[0], "move") == 0) {
         move(args);
-    } else if (strcmp(args[0], "echopend") == 0) { // אם הפקודה היא echopend
-        echopend(args);
-    } else if (strcmp(args[0], "echowrite") == 0) { // אם הפקודה היא echowrite
-        echowrite(args);
-    } else if (strcmp(args[0], "read") == 0) { // אם הפקודה היא read
+    } else if (strcmp(args[0], "echo") == 0) {
+        echo(args);
+    } else if (strcmp(args[0], "read") == 0) {
         readfile(args);
-    } else if (strcmp(args[0], "wordCount") == 0) { // אם הפקודה היא wordCount
+    } else if (strcmp(args[0], "wordCount") == 0) {
         wordCount(args);
     } else {
-        pid_t pid = fork(); // יוצר תהליך בן
-        if (pid == 0) { // אם זהו תהליך הבן
-            execvp(args[0], args); // מפעיל את הפקודה
-            perror("Command execution failed"); // הודעת שגיאה במקרה של כשלון
+        pid_t pid = fork();
+        if (pid == 0) {
+            execvp(args[0], args);
+            perror("Command execution failed");
             exit(EXIT_FAILURE);
-        } else if (pid > 0) { // תהליך האב מחכה לסיום התהליך הבן
+        } else if (pid > 0) {
             wait(NULL);
         } else {
-            perror("fork failed"); // הודעת שגיאה אם fork נכשל
+            perror("fork failed");
         }
     }
 }
