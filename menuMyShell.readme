@@ -1,0 +1,192 @@
+# מדריך למשתמש - Shell אישי
+
+ברוך הבא ל-Shell האישי שלך! מדריך זה יסביר כיצד להשתמש באפליקציה שלך, כולל דוגמאות לכל פקודה.
+
+## הפעלת ה-Shell
+
+כדי להפעיל את ה-Shell, הרץ את הפקודה הבאה בטרמינל:
+```sh
+./myShell
+```
+
+## פקודות זמינות
+
+### 1. `cd`
+הפקודה `cd` משנה את הספרייה הנוכחית.
+
+דוגמה:
+```sh
+cd /path/to/directory
+```
+
+### 2. `cp`
+הפקודה `cp` מעתיקה קובץ ממקום אחד למקום אחר.
+
+דוגמה:
+```sh
+cp source.txt destination.txt
+```
+
+### 3. `delete`
+הפקודה `delete` מוחקת קובץ.
+
+דוגמה:
+```sh
+delete file_to_delete.txt
+```
+
+### 4. `mv`
+הפקודה `move` מעבירה או משנה שם של קובץ.
+
+דוגמה:
+```sh
+move source.txt destination.txt
+```
+
+### 5. `echopend`
+הפקודה `echopend` מוסיפה מחרוזת לקובץ.
+
+דוגמה:
+```sh
+echopend "Hello, World!" file.txt
+```
+
+### 6. `echowrite`
+הפקודה `echowrite` כותבת מחרוזת לקובץ (מחליפה את התוכן הקיים).
+
+דוגמה:
+```sh
+echowrite "Hello, World!" file.txt
+```
+
+### 7. `read`
+הפקודה `read` קוראת ומציגה את תוכן הקובץ.
+
+דוגמה:
+```sh
+read file.txt
+```
+
+### 8. `wordCount`
+הפקודה `wordCount` סופרת ומציגה את מספר השורות או המילים בקובץ.
+
+דוגמה:
+```sh
+wordCount -l file.txt  # סופר שורות
+wordCount -w file.txt  # סופר מילים
+```
+
+### 9. פקודות מערכת אחרות
+ניתן להריץ פקודות מערכת אחרות כמו `ls`, `grep`, `cat` וכו'.
+
+דוגמה:
+```sh
+ls -l
+grep "pattern" file.txt
+```
+
+## יציאה מה-Shell
+
+כדי לצאת מה-Shell, השתמש בפקודה `exit`:
+```sh
+exit
+```
+
+---
+
+## דוגמאות לשימוש
+
+### דוגמה 1: העתקת קובץ
+```sh
+$ cp source.txt destination.txt
+```
+
+### דוגמה 2: מחיקת קובץ
+```sh
+$ delete file_to_delete.txt
+```
+
+### דוגמה 3: שינוי ספרייה
+```sh
+$ cd /tmp
+```
+
+### דוגמה 4: הוספת מחרוזת לקובץ
+```sh
+$ echopend "Hello, World!" file.txt
+```
+
+### דוגמה 5: קריאת תוכן קובץ
+```sh
+$ read file.txt
+```
+
+### דוגמה 6: ספירת שורות בקובץ
+```sh
+$ wordCount -l file.txt
+```
+
+### דוגמה 7: יציאה מה-Shell
+```sh
+$ exit
+```
+
+---
+### 3. `delete`
+הפקודה `delete` מוחקת קובץ או תיקיה.  
+אם תציין קובץ – הוא יימחק.  
+אם תציין תיקיה – כל התוכן שלה יימחק (כולל תיקיות וקבצים בתוכה).
+
+דוגמה:
+```sh
+delete file_to_delete.txt        # מוחק קובץ
+delete my_folder                # מוחק תיקיה וכל מה שבתוכה
+```
+
+### 5. `echopend`
+הפקודה `echopend` מוסיפה מחרוזת לסוף קובץ.  
+אם הקובץ לא קיים – הוא ייווצר.
+
+דוגמה:
+```sh
+echopend "Hello, World!" file.txt
+```
+
+### 6. `echowrite`
+הפקודה `echowrite` כותבת מחרוזת לקובץ (מוחקת את התוכן הקודם).  
+אם הקובץ לא קיים – הוא ייווצר.
+
+דוגמה:
+```sh
+echowrite "Hello, World!" file.txt
+```
+
+### 7. `read`
+הפקודה `read` קוראת ומציגה את כל תוכן הקובץ.
+
+דוגמה:
+```sh
+read file.txt
+```
+
+### 8. `wordCount`
+הפקודה `wordCount` סופרת ומציגה את מספר השורות, המילים או התווים בקובץ.
+
+דוגמה:
+```sh
+wordCount -l file.txt  # סופר שורות
+wordCount -w file.txt  # סופר מילים
+wordCount -c file.txt  # סופר תווים
+```
+
+### 9. פקודות מערכת אחרות
+ניתן להריץ פקודות מערכת רגילות כמו `ls`, `grep`, `cat` וכו'.
+
+דוגמה:
+```sh
+ls -l
+grep "pattern" file.txt
+```
+
+
+בהצלחה ושימוש נעים!

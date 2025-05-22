@@ -1,96 +1,98 @@
 #ifndef MYFUNCTION_H
 #define MYFUNCTION_H
 
-
+/**
+ * @brief Copies the content of a source file to a destination file.
+ * @param arguments Array of arguments (arguments[1] is the source, arguments[2] is the destination).
+ */
+void cp(char **arguments);
 /**
  * @brief Prints a welcome message to the user.
  */
-void print_welcome(); 
+void print_welcome();
 
 /**
- * @brief Prints the current location, including hostname, username, and current working directory.
+ * @brief Prints the current location (username, hostname, and current directory).
  */
 void getlocation();
 
 /**
- * @brief Splits a string into an array of arguments.
- * 
- * @param str The input string to split.
- * @return A dynamically allocated array of strings (arguments).
+ * @brief Reads a line of input from the user.
+ * @return Pointer to a dynamically allocated string containing the input.
  */
-char **splitArgument(char *str);
-
-/**
- * @brief Logs out the user if the input string is "exit".
- * 
- * @param str The input string to check.
- */
-void logout(char *str);
+char *inputFromUser();
 
 /**
  * @brief Changes the current working directory.
- * 
- * @param args An array of arguments where args[1] is the target directory.
+ * @param arguments Array of arguments (arguments[1] is the target directory).
  */
-void cd(char **args);
+void cd(char **arguments);
+
+
 
 /**
- * @brief Copies the content of a source file to a destination file.
- * 
- * @param args An array of arguments where args[1] is the source file and args[2] is the destination file.
+ * @brief Splits a string into an array of arguments.
+ * @param arr The input string to split.
+ * @return A dynamically allocated array of strings (arguments).
  */
-void cp(char **args);
+char **splitArguments(char *input);
+
+/**
+ * @brief Exits the shell program.
+ */
+void logout();
+
+/**
+ * @brief Executes a command using fork and execvp.
+ * @param arguments Array of arguments (first is the command).
+ */
+void systemCall(char **arguments);
+
+/**
+ * @brief Executes up to three commands connected by pipes.
+ * @param argv1 Arguments for the first command.
+ * @param argv2 Arguments for the second command.
+ * @param argv3 Arguments for the third command (can be NULL).
+ */
+void myPipe(char **argv1, char **argv2, char **argv3);
+
+/**
+ * @brief Returns the index of the first pipe symbol in the arguments array.
+ * @param arguments Array of arguments.
+ * @return Index of the pipe symbol, or 0 if not found.
+ */
+int getPipe(char **arguments);
 
 /**
  * @brief Deletes a file.
- * 
- * @param str The name of the file to delete.
+ * @param arguments Array of arguments (arguments[1] is the file to delete).
  */
-void delete(char *str);
-
-/**
- * @brief Creates a pipe between two commands.
- * 
- * @param argv1 The first command and its arguments.
- * @param argv2 The second command and its arguments.
- */
-void mypipe(char **argv1, char **argv2);
+void del(char **arguments);
 
 /**
  * @brief Moves or renames a file.
- * 
- * @param args An array of arguments where args[1] is the source file and args[2] is the destination file.
+ * @param arguments Array of arguments (arguments[1] is the source, arguments[2] is the destination).
  */
-void move(char **args);
+void move(char **arguments);
 
 /**
- * @brief Appends a string to a file.
- * 
- * @param args An array of arguments where args[1] is the string to append and args[2] is the target file.
+ * @brief Prints a string or writes/appends it to a file.
+ * @param arguments Array of arguments (supports echo, echo >, echo >>).
  */
-void echopend(char **args);
+void echoFile(char **arguments);
+
 
 /**
- * @brief Writes a string to a file, replacing its content.
- * 
- * @param args An array of arguments where args[1] is the string to write and args[2] is the target file.
+ * @brief Counts the number of words, lines, and characters in a file.
+ * @param arguments Array of arguments (arguments[1] is the file to count).
  */
-void echowrite(char **args);
+void wordCount(char **arguments);
+
 
 /**
- * @brief Reads and prints the content of a file.
- * 
- * @param args An array of arguments where args[1] is the file to read.
+ * @brief Reads and prints the content of a file to the screen.
+ * @param arguments Array of arguments (arguments[1] is the file to read).
  */
-void readfile(char **args);
-
-/**
- * @brief Counts and prints the number of lines or words in a file.
- * 
- * @param args An array of arguments where args[1] is the option (-l for lines, -w for words) and args[2] is the file to count.
- */
-void wordCount(char **args);
+void readfile(char **arguments);
 
 #endif
-
-

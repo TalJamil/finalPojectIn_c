@@ -3,26 +3,82 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
-#include <linux/limits.h>
 #include <sys/utsname.h>
 #include <pwd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <libgen.h>
+#include <ftw.h>
 
 #define PURPLE "\033[1;35m" // צבע סגול
 #define LIGHT_PURPLE "\033[1;36m" // צבע סגול בהיר
 #define GREEN "\033[1;32m"  // צבע ירוק
 #define BLUE "\033[1;34m"   // צבע כחול
-#define YELLOW "\033[1;33m" // צבע צהוב
 #define RESET "\033[0m"     // איפוס צבע
 #define BUFFER_SIZE 1024
 #define ARGUMENTS_SIZE 10
 
-// פונקציה שמדפיסה הודעת ברוכים הבאים
+
+void cp(char **arguments){
+    int size = 0;
+    while (arguments[size] != NULL) {
+        size++;
+    }
+
+    if(size > 3){
+        perror("too many arguments");
+        return;
+    }
+    if(size < 3){
+        perror("missing arguments");
+        return;
+    }
+
+    FILE *fptr1, *fptr2;
+    int c;
+
+    // אם קובץ המקור לא קיים, צור אותו ריק
+    fptr1 = fopen(arguments[1], "r");
+    if (fptr1 == NULL) {
+        fptr1 = fopen(arguments[1], "w");
+        if (fptr1 == NULL) {
+            printf("Cannot create source file %s\n", arguments[1]);
+            return;
+        }
+        fclose(fptr1);
+        fptr1 = fopen(arguments[1], "r");
+    }
+
+    // בדוק אם היעד הוא תיקיה
+    struct stat st;
+    char dest_path[PATH_MAX];
+    if (stat(arguments[2], &st) == 0 && S_ISDIR(st.st_mode)) {
+        // צור נתיב יעד: <תיקיה>/<שם קובץ>
+        snprintf(dest_path, sizeof(dest_path), "%s/%s", arguments[2], basename(arguments[1]));
+    } else {
+        strncpy(dest_path, arguments[2], sizeof(dest_path));
+        dest_path[sizeof(dest_path)-1] = '\0';
+    }
+
+    fptr2 = fopen(dest_path, "w");
+    if (fptr2 == NULL) {
+        printf("Cannot open destination file %s\n", dest_path);
+        fclose(fptr1);
+        return;
+    }
+
+    while ((c = fgetc(fptr1)) != EOF) {
+        fputc(c, fptr2);
+    }
+
+    fclose(fptr1);
+    fclose(fptr2);
+}
 void print_welcome() {
-    printf("%s", BLUE); // שינוי צבע הטקסט לכחול
+    printf("%s", BLUE);
     printf("=====================================\n");
     printf("             WELCOME!               \n");
     printf("=====================================\n");
@@ -40,14 +96,14 @@ void print_welcome() {
     printf("=====================================\n");
     printf("          welcome to my shell!             \n");
     printf("=====================================\n");
-    printf("%s", RESET); // איפוס צבע הטקסט
+    printf("%s", RESET);
 }
 
-// פונקציה שמדפיסה את המיקום הנוכחי של המשתמש
+
 void getlocation() {
-    char cwd[PATH_MAX]; // משתנה לאחסון הנתיב הנוכחי
-    char hostname[sysconf(_SC_HOST_NAME_MAX)]; // משתנה לאחסון שם המחשב
-    struct passwd *pw; // מבנה לאחסון מידע על המשתמש
+    char cwd[PATH_MAX];
+    char hostname[HOST_NAME_MAX];
+    struct passwd *pw;
     
     // קבלת שם המשתמש
     pw = getpwuid(getuid());
@@ -67,322 +123,384 @@ void getlocation() {
     
     // הדפסת המידע
     printf("%s%s%s@%s%s%s:%s%s%s\n", GREEN, username, RESET, BLUE, hostname, RESET, LIGHT_PURPLE, cwd, RESET);
-    
 }
 
-char **splitArgument(char *str) {
-    int count = 0; // מונה את מספר המילים
-    char **arguments = malloc(sizeof(char*) * ARGUMENTS_SIZE); // מקצה זיכרון למערך המחרוזות
-    if (!arguments) {
-        perror("malloc failed");
-        return NULL;
+
+char *inputFromUser()
+{
+    char ch;
+    int len = 0;
+    char *input = (char *)malloc(sizeof(char) * (len + 1));
+    *input = '\0';
+    while ((ch = getchar()) != '\n')
+    {
+     *(input + len) = ch;
+        input = (char *)realloc(input, (++len + 1));
+    }
+    *(input + len) = '\0';
+
+    return input;
+}
+
+
+void cd(char **arguments){
+    int size = 0;
+    while (arguments[size] != NULL) {
+        size++;
+    }
+    
+    if(size>2){
+        perror("to manny arguments");
+    }
+    else if(size==1){
+        chdir(getenv("HOME"));
+    }else{
+        chdir(arguments[1]);  
     }
 
-    while (*str) {
-        // דילוג על רווחים
-        while (*str == ' ') str++;
+}
 
-        char *start;
-        if (*str == '\'') {
-            // אם המחרוזת מתחילה בגרשיים
-            str++;
-            start = str;
-            while (*str && *str != '\'') str++;
-            if (*str == '\'') {
-                *str = '\0';
-                str++;
-            }
+ char **splitArguments(char *input) {
+    int capacity = 10;
+    char **args = malloc(capacity * sizeof(char*));
+    int i = 0;
+    char *p = input;
+    while (*p) {
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p) break;
+
+        if (*p == '"' || *p == '\'') {
+            char quote = *p++;
+            char *start = p;
+            while (*p && *p != quote) p++;
+            int len = p - start;
+            args[i++] = strndup(start, len);
+            if (*p) p++;
+        } else if (*p == '>' && *(p+1) == '>') {
+            args[i++] = strdup(">>");
+            p += 2;
+        } else if (*p == '>') {
+            args[i++] = strdup(">");
+            p++;
         } else {
-            // אם המחרוזת לא מתחילה בגרשיים
-            start = str;
-            while (*str && *str != ' ') str++;
-            if (*str) {
-                *str = '\0';
-                str++;
+            char *start = p;
+            while (*p && *p != ' ' && *p != '\t' && *p != '>') p++;
+            int len = p - start;
+            // בדוק אם יש >> או > צמודים לסוף המילה
+            if (len > 0 && (*(p) == '>' || (*(p) == '>' && *(p+1) == '>'))) {
+                // פיצול המילה מהמפעיל
+                int word_len = len;
+                // בדוק אם יש >> בסוף
+                if (word_len >= 2 && start[word_len-2] == '>' && start[word_len-1] == '>') {
+                    args[i++] = strndup(start, word_len-2);
+                    args[i++] = strdup(">>");
+                } else if (word_len >= 1 && start[word_len-1] == '>') {
+                    args[i++] = strndup(start, word_len-1);
+                    args[i++] = strdup(">");
+                } else {
+                    args[i++] = strndup(start, word_len);
+                }
+            } else {
+                args[i++] = strndup(start, len);
             }
         }
-
-        arguments[count] = strdup(start); // מעתיק את המילה למערך
-        if (!arguments[count]) {
-            perror("strdup failed");
-            freeArguments(arguments);
-            return NULL;
+        if (i >= capacity - 1) {
+            capacity *= 2;
+            args = realloc(args, capacity * sizeof(char*));
         }
-        count++;
     }
-    arguments[count] = NULL; // מסמן את סוף המערך
-    return arguments;
+    args[i] = NULL;
+    return args;
+}
+void logout()
+{
+    puts("logout...");
+    exit(EXIT_SUCCESS);
 }
 
-// פונקציה שמשחררת את הזיכרון שהוקצה למערך המחרוזות
-void freeArguments(char **args) {
-    for (int i = 0; args[i] != NULL; i++) {
-        free(args[i]); // משחרר כל מחרוזת במערך
-    }
-    free(args); // משחרר את המערך עצמו
-}
 
-// פונקציה שמבצעת יציאה מהתוכנית אם המשתמש הקליד exit
-void logout(char *str) {
-    // הסרת רווחים מתחילת המחרוזת
-    while (*str == ' ') str++;
-    
-    // בדיקה אם המחרוזת מתחילה ב-exit
-    if (strncmp(str, "exit", 4) == 0) {
-        str += 4;
-        // דילוג על רווחים אחרי "exit"
-        while (*str == ' ') str++;
-        
-        // אם הגענו לסוף המחרוזת, מבצעים יציאה
-        if (*str == '\0') {
-            printf("%sLogging out...%s\n", BLUE, RESET);
-            exit(0);
+void systemCall(char **arguments)
+{
+    pid_t pid = fork();
+    if (pid == -1)
+    {
+        perror("fork err");
+        return;
+    }
+
+    if (pid == 0)
+    {
+
+        if (execvp(arguments[0], arguments) == -1)
+        {
+            exit(EXIT_FAILURE);
         }
     }
 }
 
-// פונקציה שמשנה את הספרייה הנוכחית
-void cd(char **args) {
-    if (args[1] == NULL) {
-        fprintf(stderr, "%scd: missing argument%s\n", YELLOW, RESET);
-        return;
+void myPipe(char **argv1, char **argv2, char **argv3)
+{
+
+    int fd1[2], fd2[2];
+
+    if (pipe(fd1) == -1) {
+        perror("pipe1 failed");
+        exit(1);
     }
-    
-    char path[PATH_MAX] = ""; // משתנה לאחסון הנתיב
-    for (int i = 1; args[i] != NULL; i++) {
-        strcat(path, args[i]); // מחבר את כל המילים לנתיב אחד
-        if (args[i + 1] != NULL) {
-            strcat(path, " ");
+
+    if (argv3 != NULL) {  // create second pipe if argv3 isnt null
+        if (pipe(fd2) == -1) {
+            perror("pipe2 failed");
+            exit(1);
         }
     }
-    
-    if (chdir(path) != 0) { // משנה את הספרייה הנוכחית
-        perror("cd failed");
+
+    pid_t pid1 = fork();
+    if (pid1 < 0) {
+        perror("fork1 failed");
+        exit(1);
+    }
+    if (pid1 == 0) {
+        close(fd1[0]);  //close fd1 read
+        dup2(fd1[1], STDOUT_FILENO);  //redirect output to fd1[1]
+        close(fd1[1]);  //close original write
+
+        execvp(argv1[0], argv1);
+        perror("execvp1 failed");
+        exit(1);
+    }
+
+    pid_t pid2 = fork();
+    if (pid2 < 0) {
+        perror("fork2 failed");
+        exit(1);
+    }
+    if (pid2 == 0) {
+        close(fd1[1]);  //close write of fd1
+        dup2(fd1[0], STDIN_FILENO);  //read from fd1 [0]
+        close(fd1[0]);  // close the original read
+
+        if (argv3 != NULL) { // if i have second pipe
+            close(fd2[0]);  // close fd2[0]
+            dup2(fd2[1], STDOUT_FILENO);  //redirect the output to fd2[1]
+            close(fd2[1]);  //close original write
+        }
+
+        execvp(argv2[0], argv2);
+        perror("execvp2 failed");
+        exit(1);
+    }
+
+    //done with first pipe
+    close(fd1[0]);
+    close(fd1[1]);
+
+    if (argv3 != NULL) { // if second pipe
+        pid_t pid3 = fork();
+        if (pid3 < 0) {
+            perror("fork3 failed");
+            exit(1);
+        }
+        if (pid3 == 0) {
+            close(fd2[1]);  //close write of the pipe
+            dup2(fd2[0], STDIN_FILENO);  //read from the pipe
+            close(fd2[0]);  // close original read
+
+            execvp(argv3[0], argv3);
+            perror("execvp3 failed");
+            exit(1);
+        }
+        //close the second pipe
+        close(fd2[0]);
+        close(fd2[1]);
+    }
+
+    wait(NULL);
+    wait(NULL);
+    if (argv3 != NULL) {
+        wait(NULL);
     }
 }
 
-// פונקציה שמעתיקה קובץ ממקום אחד למקום אחר
-void cp(char **args) {
-    if (args[1] == NULL || args[2] == NULL) {
-        fprintf(stderr, "%scp: missing source or destination%s\n", YELLOW, RESET);
+int getPipe(char **arguments){
+    int i = 0;
+    while(arguments[i]  != NULL){
+        if(arguments[i][0] == '|'){
+            arguments[i] = NULL;
+            return i;
+        }
+        i = i+1;
+    }
+    return 0;
+}
+
+void del(char **arguments)
+{
+    int size = 0;
+    while (arguments[size] != NULL) {
+        size++;
+    }
+
+    if(size < 2){
+        perror("delete needs a path");
         return;
     }
-    
-    int source = open(args[1], O_RDONLY); // פותח את קובץ המקור לקריאה
-    if (source == -1) {
-        perror("cp: source file error");
+    else if(size > 2){
+        perror("too many arguments");
         return;
     }
-    
-    int dest = open(args[2], O_WRONLY | O_CREAT | O_TRUNC, 0644); // פותח את קובץ היעד לכתיבה
-    if (dest == -1) {
-        perror("cp: destination file error");
-        close(source);
+
+    struct stat st;
+    if (stat(arguments[1], &st) == 0 && S_ISDIR(st.st_mode)) {
+        // אם זה תיקיה - מחק עם rm -rf
+        char cmd[PATH_MAX + 20];
+        snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", arguments[1]);
+        int ret = system(cmd);
+        if (ret == 0) {
+            printf("Directory deleted successfully.\n");
+        } else {
+            perror("Error: Unable to delete the directory.");
+        }
+    } else {
+        // קובץ רגיל
+        if (remove(arguments[1]) == 0) {
+            printf("File deleted successfully.\n");
+        } else {
+            perror("Error: Unable to delete the file.");
+        }
+    }
+}
+
+
+void move(char **arguments){
+    int size = 0;
+    while (arguments[size] != NULL) {
+        size++;
+    }
+
+    if(size != 3){
+        perror("move needs a file source path and destination path");
         return;
     }
-    
-    char buffer[BUFFER_SIZE]; // משתנה לאחסון הנתונים המועתקים
-    ssize_t bytes;
-    while ((bytes = read(source, buffer, sizeof(buffer))) > 0) { // קורא את הנתונים מקובץ המקור
-        if (write(dest, buffer, bytes) != bytes) { // כותב את הנתונים לקובץ היעד
-            perror("cp: write error");
-            close(source);
-            close(dest);
+
+    struct stat st;
+    char dest_path[PATH_MAX];
+    if (stat(arguments[2], &st) == 0 && S_ISDIR(st.st_mode)) {
+        // אם היעד הוא תיקיה, הוסף את שם הקובץ לנתיב
+        snprintf(dest_path, sizeof(dest_path), "%s/%s", arguments[2], basename(arguments[1]));
+    } else {
+        strncpy(dest_path, arguments[2], sizeof(dest_path));
+        dest_path[sizeof(dest_path)-1] = '\0';
+    }
+
+    int status = rename(arguments[1], dest_path);
+
+    if(status != 0 ){
+        perror("coulndt move file");
+    }
+}
+
+void echoFile(char **arguments) {
+    int size = 0;
+    while (arguments[size] != NULL) size++;
+
+    if(size == 2) {
+        puts(arguments[1]);
+        return;
+    }
+
+    char *dest = NULL;
+    if (size == 4) {
+        dest = arguments[3];
+    } else if (size == 3) {
+        dest = arguments[2];
+    } else {
+        perror("Incorrect number of arguments echoppend needs to be used like <string> >or>> <destination to append/write to>");
+        return;
+    }
+
+    // --- יצירת תיקיה אם צריך ---
+    char dest_copy[PATH_MAX];
+    strncpy(dest_copy, dest, PATH_MAX-1);
+    dest_copy[PATH_MAX-1] = '\0';
+    char *slash = strrchr(dest_copy, '/');
+    if (slash) {
+        *slash = '\0';
+        struct stat st = {0};
+        if (stat(dest_copy, &st) == -1) {
+            mkdir(dest_copy, 0755);
+        }
+    }
+    // --- סוף יצירת תיקיה ---
+
+    FILE *destFile;
+    char *input = arguments[1];
+
+    if(strcmp(arguments[2],">") == 0){
+        destFile = fopen(dest, "w");
+    }
+    else if (strcmp(arguments[2],">>") == 0){
+        destFile = fopen(dest, "a");
+    }
+    else{
+        perror("expected > or >> after string but didnt get it");
+        return;
+    }
+
+    if (destFile == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    fprintf(destFile, "%s", input);
+    fclose(destFile);
+}
+void readfile(char **arguments) {
+    if (!arguments[1]) {
+        printf("No file specified\n");
+        return;
+    }
+    FILE *f = fopen(arguments[1], "r");
+    if (!f) {
+        // אם לא קיים, צור אותו
+        f = fopen(arguments[1], "w");
+        if (!f) {
+            printf("Cannot create file: %s\n", arguments[1]);
             return;
         }
-    }
-    
-    if (bytes == -1) {
-        perror("cp: read error");
-    }
-    
-    close(source); // סוגר את קובץ המקור
-    close(dest); // סוגר את קובץ היעד
-}
-
-// פונקציה שמוחקת קובץ
-void delete(char *str) {
-    // הסרת רווחים מתחילת המחרוזת
-    while (*str == ' ') str++;
-    
-    // בדיקה אם המחרוזת ריקה
-    if (*str == '\0') {
-        fprintf(stderr, "%sdelete: missing file path%s\n", YELLOW, RESET);
+        printf("File '%s' did not exist and was created (empty).\n", arguments[1]);
+        fclose(f);
         return;
     }
-    
-    // ניסיון למחוק את הקובץ
-    if (unlink(str) == 0) {
-        printf("%sFile '%s' deleted successfully.%s\n", YELLOW, str, RESET);
-    } else {
-        perror("delete: file deletion failed");
-    }
-}
-
-// פונקציה שמבצעת צינור בין שתי פקודות
-void mypipe(char **argv1, char **argv2) {
-    int pipefd[2]; // משתנה לאחסון תיאורי הקבצים של הצינור
-    if (pipe(pipefd) == -1) {
-        perror("pipe failed");
-        exit(EXIT_FAILURE);
-    }
-
-    pid_t pid1 = fork(); // יוצר תהליך בן ראשון
-    if (pid1 == -1) {
-        perror("fork failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (pid1 == 0) {
-        // תהליך ראשון - הכותב לצינור
-        close(pipefd[0]); // סוגר את הקצה הקורא של הצינור
-        dup2(pipefd[1], STDOUT_FILENO); // מחבר את הקצה הכותב של הצינור ל-stdout
-        close(pipefd[1]); // סוגר את הקצה הכותב של הצינור
-        execvp(argv1[0], argv1); // מפעיל את הפקודה הראשונה
-        perror("execvp failed");
-        exit(EXIT_FAILURE);
-    }
-
-    pid_t pid2 = fork(); // יוצר תהליך בן שני
-    if (pid2 == -1) {
-        perror("fork failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (pid2 == 0) {
-        // תהליך שני - הקורא מהצינור
-        close(pipefd[1]); // סוגר את הקצה הכותב של הצינור
-        dup2(pipefd[0], STDIN_FILENO); // מחבר את הקצה הקורא של הצינור ל-stdin
-        close(pipefd[0]); // סוגר את הקצה הקורא של הצינור
-        execvp(argv2[0], argv2); // מפעיל את הפקודה השנייה
-        perror("execvp failed");
-        exit(EXIT_FAILURE);
-    }
-
-    close(pipefd[0]); // סוגר את הקצה הקורא של הצינור בתהליך האב
-    close(pipefd[1]); // סוגר את הקצה הכותב של הצינור בתהליך האב
-    waitpid(pid1, NULL, 0); // מחכה לסיום התהליך הראשון
-    waitpid(pid2, NULL, 0); // מחכה לסיום התהליך השני
-}
-
-// פונקציה שמעבירה או משנה שם של קובץ
-void move(char **args) {
-    if (args[1] == NULL || args[2] == NULL) {
-        fprintf(stderr, "%smove: missing source or destination%s\n", YELLOW, RESET);
-        return;
-    }
-    
-    if (rename(args[1], args[2]) != 0) { // משנה את שם הקובץ או מעביר אותו
-        perror("move: file move failed");
-    } else {
-        printf("%sFile moved successfully from '%s' to '%s'%s\n", YELLOW, args[1], args[2], RESET);
-    }
-}
-
-// פונקציה שמבצעת את פקודת echo
-void echo(char **args) {
-    for (int i = 1; args[i] != NULL; i++) {
-        printf("%s ", args[i]);
-    }
+    int c;
+    while ((c = fgetc(f)) != EOF)
+        putchar(c);
+    fclose(f);
     printf("\n");
-}
 
-// פונקציה שקוראת ומציגה את תוכן הקובץ
-void readfile(char **args) {
-    if (args[1] == NULL) {
-        fprintf(stderr, "%sread: missing file path%s\n", YELLOW, RESET);
-        return;
-    }
     
-    FILE *file = fopen(args[1], "r"); // פותח את הקובץ לקריאה
-    if (!file) {
-        perror("read: file open failed");
-        return;
-    }
-    
-    char buffer[BUFFER_SIZE]; // משתנה לאחסון הנתונים הנקראים
-    while (fgets(buffer, sizeof(buffer), file)) { // קורא את הנתונים מהקובץ
-        printf("%s", buffer); // מציג את הנתונים
-    }
-    fclose(file); // סוגר את הקובץ
 }
-
-// פונקציה שסופרת ומציגה את מספר השורות או המילים בקובץ
-void wordCount(char **args) {
-    if (args[1] == NULL || args[2] == NULL) {
-        fprintf(stderr, "%swordCount: missing option or file path%s\n", YELLOW, RESET);
+void wordCount(char **arguments) {
+    if (arguments[1] == NULL || arguments[2] == NULL) {
+        perror("missing arguments");
         return;
     }
-    
-    FILE *file = fopen(args[2], "r"); // פותח את הקובץ לקריאה
-    if (!file) {
-        perror("wordCount: file open failed");
+    FILE *f = fopen(arguments[2], "r");
+    if (!f) {
+        perror("cannot open file");
         return;
     }
-    
-    int count = 0; // מונה את מספר השורות או המילים
-    char buffer[BUFFER_SIZE]; // משתנה לאחסון הנתונים הנקראים
-    if (strcmp(args[1], "-l") == 0) { // אם האופציה היא -l (ספירת שורות)
-        while (fgets(buffer, sizeof(buffer), file)) {
-            count++;
-        }
-        printf("%sLines: %d%s\n", YELLOW, count, RESET);
-    } else if (strcmp(args[1], "-w") == 0) { // אם האופציה היא -w (ספירת מילים)
-        while (fscanf(file, "%s", buffer) == 1) {
-            count++;
-        }
-        printf("%sWords: %d%s\n", YELLOW, count, RESET);
+    int count = 0;
+    if (strcmp(arguments[1], "-w") == 0) {
+        char word[256];
+        while (fscanf(f, "%255s", word) == 1) count++;
+        printf("%d\n", count);
+    } else if (strcmp(arguments[1], "-l") == 0) {
+        char line[1024];
+        while (fgets(line, sizeof(line), f)) count++;
+        printf("%d\n", count);
     } else {
-        fprintf(stderr, "%swordCount: invalid option. Use -l for lines or -w for words.%s\n", YELLOW, RESET);
+        perror("invalid flag");
     }
-    fclose(file); // סוגר את הקובץ
-}
-
-// פונקציה שמבצעת פקודה עם הפניה מחדש של פלט
-void execute_command_with_redirection(char **args) {
-    int fd = -1;
-    pid_t pid;
-    int background = 0;
-
-    // Check for background process
-    for (int i = 0; args[i] != NULL; i++) {
-        if (strcmp(args[i], "&") == 0) {
-            background = 1;
-            args[i] = NULL;
-            break;
-        }
-    }
-
-    // Check for output redirection
-    for (int i = 0; args[i] != NULL; i++) {
-        if (strcmp(args[i], ">") == 0) {
-            args[i] = NULL;
-            fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            if (fd < 0) {
-                perror("open");
-                return;
-            }
-            break;
-        }
-    }
-
-    pid = fork();
-    if (pid == 0) {
-        // Child process
-        if (fd >= 0) {
-            dup2(fd, STDOUT_FILENO);
-            close(fd);
-        }
-        execvp(args[0], args);
-        perror("execvp");
-        exit(EXIT_FAILURE);
-    } else if (pid < 0) {
-        // Fork failed
-        perror("fork");
-    } else {
-        // Parent process
-        if (!background) {
-            waitpid(pid, NULL, 0);
-        }
-    }
+    fclose(f);
 }
